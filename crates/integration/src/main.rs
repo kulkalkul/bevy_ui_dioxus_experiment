@@ -23,8 +23,11 @@ fn main() {
 fn app_root(cx: Scope) -> Element {
     cx.render(rsx! {
         div {
-            div { "hello world" }
-            div { "world hello" }
+            div {
+                div { "0" }
+            }
+            div { "1" }
+            div { "2" }
         }
     })
 }
