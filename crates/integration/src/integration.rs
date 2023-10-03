@@ -1,4 +1,4 @@
-use bevy::{prelude::{World, Entity, default, NodeBundle}, utils::HashMap};
+use bevy::{prelude::{World, Entity, default, NodeBundle, TextBundle, ImageBundle, ButtonBundle}, utils::HashMap, text::{Text, TextStyle}};
 use dioxus::{prelude::{VirtualDom, TemplateNode, Template}, core::Mutations};
 
 use crate::app_root::AppRootComponent;
@@ -14,25 +14,48 @@ struct IntegrationData {
     element_map: ElementMap,
 }
 
-enum NodeType {
-    Div {
-        
-    },
-    Image {
-
-    },
-    Button {
-
+enum Node {
+    Element {
+        element: Element,
+        children: NodeChildrenTree,
     },
     Text {
-        text: String,
+        bundle: TextBundle,
     },
     PlaceHolder,
 }
 
+enum Element {
+    Div {
+        bundle: NodeBundle,
+    },
+    Image {
+        bundle: ImageBundle,
+    },
+    Button {
+        bundle: ButtonBundle,
+    },
+}
+
+struct NodeChildrenTree {
+    nodes: Vec<NodeChild>,
+}
+
+impl Default for NodeChildrenTree {
+    fn default() -> Self {
+        Self { nodes: Default::default() }
+    }
+}
+
+enum NodeChild {
+    Node(Node),
+    In,
+    Out,
+}
+
 #[derive(Default)]
 struct TemplateMap {
-    map: HashMap<String, Vec<NodeType>>,
+    map: HashMap<String, Vec<Node>>,
 }
 
 impl TemplateMap {
@@ -40,44 +63,74 @@ impl TemplateMap {
         let mut template_roots = Vec::with_capacity(template.roots.len());
         
         for node in template.roots {
-            let node_type = self.create_node(template.name.to_string(), node);
+            let node = self.create_node(template.name.to_string(), node);
             template_roots.push(node);
         }
 
         self.map.insert(template.name.to_string(), template_roots);
     }
-    fn create_node(&mut self, name: String, node: &TemplateNode) -> NodeType {
-        let node_type = match node {
+    fn create_node(&mut self, name: String, node: &TemplateNode) -> Node {
+        match node {
             TemplateNode::Element {
                 tag,
-                namespace,
                 attrs,
                 children,
+                ..
             } => {
                 // TODO: Handle child nodes
                 for node in *children {
                     self.create_node(name.clone(), node);
                 }
 
-                // Wish I could avoid using string for tags
-                match *tag {
-                    "div" => NodeType::Div {
-                    },
-                    "img" => NodeType::Image {
-                    },
-                    "button" => NodeType::Button {
-                    },
-                    _ => panic!("Invalid tag, this shouldn't happen"),
+                let element = Self::create_element(*tag);
+                let children = NodeChildrenTree::default();
+                
+                Node::Element {
+                    element,
+                    children,
                 }
             },
-            TemplateNode::Text { text } => NodeType::Text {
-                text: text.to_string(),
+            TemplateNode::Text { text } => Self::create_text_node(*text),
+            TemplateNode::Dynamic { .. } => Self::create_dynamic_node(),
+            TemplateNode::DynamicText { .. } => Self::create_dynamic_text_node(),
+        }
+    }
+    fn create_element(tag: &str) -> Element {
+        // Wish I could avoid using string for tags
+        match tag {
+            "div" => Element::Div {
+                bundle: NodeBundle {
+                    ..default()
+                },
             },
-            TemplateNode::Dynamic { id } => NodeType::PlaceHolder,
-            TemplateNode::DynamicText { id } => NodeType::Text {
-                text: "".to_string(),
+            "img" => Element::Image {
+                bundle: ImageBundle {
+                    ..default()
+                },
             },
-        };
+            "button" => Element::Button {
+                bundle: ButtonBundle {
+                    ..default()
+                },
+            },
+            _ => panic!("Invalid tag, this shouldn't happen"),
+        }
+    }
+    fn create_text_node(text: impl Into<String>) -> Node {
+        Node::Text {
+            bundle: TextBundle {
+                text: Text::from_section(text, TextStyle::default()),
+                ..default()
+            }
+        }
+    }
+    fn create_dynamic_node() -> Node {
+        Node::PlaceHolder
+    }
+    fn create_dynamic_text_node() -> Node {
+        Node::Text {
+            bundle: TextBundle::default(),
+        }
     }
 }
 
