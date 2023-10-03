@@ -1,6 +1,6 @@
 [workspace]
 
 members = [
-    # "crates/elements",
+    "crates/elements",
     "crates/integration",
 ]
