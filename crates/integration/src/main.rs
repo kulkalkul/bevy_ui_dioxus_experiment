@@ -8,7 +8,7 @@ mod app_root;
 use dioxus::prelude::{Scope, Element, rsx};
 use plugin::DioxusPlugin;
 
-use dioxus::html as dioxus_elements;
+use bevy_ui_dioxus_elements as dioxus_elements;
 
 fn main() {
     App::new()

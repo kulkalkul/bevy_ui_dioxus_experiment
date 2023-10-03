@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 bevy = "0.11.3"
 dioxus = "0.4.0"
+bevy_ui_dioxus_elements = { path = "../elements" }
