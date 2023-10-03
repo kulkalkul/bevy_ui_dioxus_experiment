@@ -1,5 +1,5 @@
-use bevy::prelude::{World, Entity, default};
-use dioxus::{prelude::{VirtualDom}, core::Mutations};
+use bevy::{prelude::{World, Entity, default, NodeBundle}, utils::HashMap};
+use dioxus::{prelude::{VirtualDom, TemplateNode, Template}, core::Mutations};
 
 use crate::app_root::AppRootComponent;
 
@@ -10,11 +10,79 @@ pub struct Dioxus {
 
 #[derive(Default)]
 struct IntegrationData {
-    entity_map: EntityMap,
+    template_map: TemplateMap,
+    element_map: ElementMap,
+}
+
+enum NodeType {
+    Div {
+        
+    },
+    Image {
+
+    },
+    Button {
+
+    },
+    Text {
+        text: String,
+    },
+    PlaceHolder,
 }
 
 #[derive(Default)]
-struct EntityMap {
+struct TemplateMap {
+    map: HashMap<String, Vec<NodeType>>,
+}
+
+impl TemplateMap {
+    fn add(&mut self, template: Template) {
+        let mut template_roots = Vec::with_capacity(template.roots.len());
+        
+        for node in template.roots {
+            let node_type = self.create_node(template.name.to_string(), node);
+            template_roots.push(node);
+        }
+
+        self.map.insert(template.name.to_string(), template_roots);
+    }
+    fn create_node(&mut self, name: String, node: &TemplateNode) -> NodeType {
+        let node_type = match node {
+            TemplateNode::Element {
+                tag,
+                namespace,
+                attrs,
+                children,
+            } => {
+                // TODO: Handle child nodes
+                for node in *children {
+                    self.create_node(name.clone(), node);
+                }
+
+                // Wish I could avoid using string for tags
+                match *tag {
+                    "div" => NodeType::Div {
+                    },
+                    "img" => NodeType::Image {
+                    },
+                    "button" => NodeType::Button {
+                    },
+                    _ => panic!("Invalid tag, this shouldn't happen"),
+                }
+            },
+            TemplateNode::Text { text } => NodeType::Text {
+                text: text.to_string(),
+            },
+            TemplateNode::Dynamic { id } => NodeType::PlaceHolder,
+            TemplateNode::DynamicText { id } => NodeType::Text {
+                text: "".to_string(),
+            },
+        };
+    }
+}
+
+#[derive(Default)]
+struct ElementMap {
     map: Vec<Entity>,
 }
 
@@ -49,7 +117,10 @@ pub fn update_dioxus(world: &mut World) {
 }
 
 fn update_dom(world: &mut World, mutations: Mutations, integration_data: &mut IntegrationData) {
-    println!("{mutations:?}");
+    for template in mutations.templates {
+        integration_data.template_map.add(template);
+    }
+
     for edit in mutations.edits {
         // match edit {
         //     Mutation::AppendChildren { id, m } => todo!(),
