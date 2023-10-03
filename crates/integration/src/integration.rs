@@ -8,16 +8,20 @@ pub struct Dioxus {
     integration_data: IntegrationData,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct IntegrationData {
     template_map: TemplateMap,
     element_map: ElementMap,
 }
 
+#[derive(Debug)]
 enum Node {
-    Element {
+    ElementWithChildren {
         element: Element,
         children: NodeChildrenTree,
+    },
+    Element {
+        element: Element,
     },
     Text {
         bundle: TextBundle,
@@ -25,6 +29,7 @@ enum Node {
     PlaceHolder,
 }
 
+#[derive(Debug)]
 enum Element {
     Div {
         bundle: NodeBundle,
@@ -37,8 +42,22 @@ enum Element {
     },
 }
 
+#[derive(Debug)]
 struct NodeChildrenTree {
     nodes: Vec<NodeChild>,
+}
+
+impl NodeChildrenTree {
+    fn placeholder(&mut self) -> usize {
+        self.nodes.push(NodeChild::Node(Node::PlaceHolder));
+        self.nodes.len() - 1
+    }
+    fn replace(&mut self, index: usize, child: NodeChild) {
+        self.nodes[index] = child;
+    }
+    fn add(&mut self, child: NodeChild) {
+        self.nodes.push(child);
+    }
 }
 
 impl Default for NodeChildrenTree {
@@ -47,13 +66,14 @@ impl Default for NodeChildrenTree {
     }
 }
 
+#[derive(Debug)]
 enum NodeChild {
     Node(Node),
     In,
     Out,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct TemplateMap {
     map: HashMap<String, Vec<Node>>,
 }
@@ -77,23 +97,56 @@ impl TemplateMap {
                 children,
                 ..
             } => {
+                let mut children_tree = NodeChildrenTree::default();
+
                 // TODO: Handle child nodes
                 for node in *children {
-                    self.create_node(name.clone(), node);
+                    let index = children_tree.placeholder();
+                    let child = self.create_child(&mut children_tree, name.clone(), node);
+                    children_tree.replace(index, child);
                 }
 
                 let element = Self::create_element(*tag);
-                let children = NodeChildrenTree::default();
                 
-                Node::Element {
+                Node::ElementWithChildren {
                     element,
-                    children,
+                    children: children_tree,
                 }
             },
             TemplateNode::Text { text } => Self::create_text_node(*text),
             TemplateNode::Dynamic { .. } => Self::create_dynamic_node(),
             TemplateNode::DynamicText { .. } => Self::create_dynamic_text_node(),
         }
+    }
+    fn create_child(
+        &mut self,
+        children_tree: &mut NodeChildrenTree,
+        name: String,
+        node: &TemplateNode,
+    ) -> NodeChild {
+        let node = match node {
+            TemplateNode::Element {
+                tag,
+                attrs,
+                children,
+                ..
+            } => {
+                for node in *children {
+                    children_tree.add(NodeChild::In);
+                    let index = children_tree.placeholder();
+                    let child = self.create_child(children_tree, name.clone(), node);
+                    children_tree.replace(index, child);
+                    children_tree.add(NodeChild::Out);
+                }
+
+                Node::Element { element: Self::create_element(*tag) }
+            },
+            TemplateNode::Text { text } => Self::create_text_node(*text),
+            TemplateNode::Dynamic { .. } => Self::create_dynamic_node(),
+            TemplateNode::DynamicText { .. } => Self::create_dynamic_text_node(),
+        };
+
+        NodeChild::Node(node)
     }
     fn create_element(tag: &str) -> Element {
         // Wish I could avoid using string for tags
@@ -134,7 +187,7 @@ impl TemplateMap {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct ElementMap {
     map: Vec<Entity>,
 }
