@@ -4,6 +4,9 @@ use bevy::{prelude::App, DefaultPlugins};
 mod plugin;
 mod integration;
 mod app_root;
+mod template_map;
+mod element_map;
+mod node;
 
 use dioxus::prelude::{Scope, Element, rsx};
 use plugin::DioxusPlugin;
