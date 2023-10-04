@@ -1,11 +1,11 @@
 use bevy::{utils::HashMap, prelude::{TextBundle, ButtonBundle, ImageBundle, NodeBundle, default}, text::{Text, TextStyle}};
 use dioxus::prelude::{TemplateNode, Template};
 
-use crate::node::{Node, NodeChildrenTree, NodeChild, Element};
+use crate::{node::{RootNode, NodeChildrenTree, NodeChild, Element, ChildNode}, nodes::{SimpleNode, ImageNode, ButtonNode, TextNode}};
 
 #[derive(Default, Debug)]
 pub struct TemplateMap {
-    map: HashMap<String, Vec<Node>>,
+    pub map: HashMap<String, Vec<RootNode>>,
 }
 
 impl TemplateMap {
@@ -19,7 +19,7 @@ impl TemplateMap {
 
         self.map.insert(template.name.to_string(), template_roots);
     }
-    fn create_node(&mut self, name: String, node: &TemplateNode) -> Node {
+    fn create_node(&mut self, name: String, node: &TemplateNode) -> RootNode {
         match node {
             TemplateNode::Element {
                 tag,
@@ -38,14 +38,18 @@ impl TemplateMap {
 
                 let element = Self::create_element(*tag);
                 
-                Node::ElementWithChildren {
-                    element,
-                    children: children_tree,
+                if children.is_empty() {
+                    RootNode::Element { element }
+                } else {
+                    RootNode::ElementWithChildren {
+                        element,
+                        children: children_tree,
+                    }
                 }
             },
-            TemplateNode::Text { text } => Self::create_text_node(*text),
-            TemplateNode::Dynamic { .. } => Self::create_dynamic_node(),
-            TemplateNode::DynamicText { .. } => Self::create_dynamic_text_node(),
+            TemplateNode::Text { text } => RootNode::Text { node: Self::create_text(*text) },
+            TemplateNode::DynamicText { .. } => RootNode::Text { node: Self::create_dynamic_text() },
+            TemplateNode::Dynamic { .. } => RootNode::PlaceHolder,
         }
     }
     fn create_child(
@@ -53,8 +57,8 @@ impl TemplateMap {
         children_tree: &mut NodeChildrenTree,
         name: String,
         node: &TemplateNode,
-    ) -> NodeChild {
-        let node = match node {
+    ) -> ChildNode {
+        match node {
             TemplateNode::Element {
                 tag,
                 attrs,
@@ -69,50 +73,34 @@ impl TemplateMap {
                     children_tree.add(NodeChild::Out);
                 }
 
-                Node::Element { element: Self::create_element(*tag) }
+                ChildNode::Element { element: Self::create_element(*tag) }
             },
-            TemplateNode::Text { text } => Self::create_text_node(*text),
-            TemplateNode::Dynamic { .. } => Self::create_dynamic_node(),
-            TemplateNode::DynamicText { .. } => Self::create_dynamic_text_node(),
-        };
-
-        NodeChild::Node(node)
+            TemplateNode::Text { text } => ChildNode::Text { node: Self::create_text(*text) },
+            TemplateNode::DynamicText { .. } => ChildNode::Text { node: Self::create_dynamic_text() },
+            TemplateNode::Dynamic { .. } => ChildNode::PlaceHolder,
+        }
     }
     fn create_element(tag: &str) -> Element {
         // Wish I could avoid using string for tags
         match tag {
             "div" => Element::Div {
-                bundle: NodeBundle {
-                    ..default()
-                },
+                node: SimpleNode { }
             },
             "img" => Element::Image {
-                bundle: ImageBundle {
-                    ..default()
-                },
+                node: ImageNode { },
             },
             "button" => Element::Button {
-                bundle: ButtonBundle {
-                    ..default()
-                },
+                node: ButtonNode { },
             },
             _ => panic!("Invalid tag, this shouldn't happen"),
         }
     }
-    fn create_text_node(text: impl Into<String>) -> Node {
-        Node::Text {
-            bundle: TextBundle {
-                text: Text::from_section(text, TextStyle::default()),
-                ..default()
-            }
+    fn create_text(text: impl Into<String>) -> TextNode {
+        TextNode {
+            text: Text::from_section(text, TextStyle::default()),
         }
     }
-    fn create_dynamic_node() -> Node {
-        Node::PlaceHolder
-    }
-    fn create_dynamic_text_node() -> Node {
-        Node::Text {
-            bundle: TextBundle::default(),
-        }
+    fn create_dynamic_text() -> TextNode {
+        TextNode::default()
     }
 }

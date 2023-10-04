@@ -1,7 +1,8 @@
-use bevy::prelude::{TextBundle, NodeBundle, ImageBundle, ButtonBundle};
+use crate::nodes::{TextNode, ImageNode, ButtonNode, SimpleNode};
 
-#[derive(Debug)]
-pub enum Node {
+
+#[derive(Debug, Clone)]
+pub enum RootNode {
     ElementWithChildren {
         element: Element,
         children: NodeChildrenTree,
@@ -10,36 +11,47 @@ pub enum Node {
         element: Element,
     },
     Text {
-        bundle: TextBundle,
+        node: TextNode,
     },
     PlaceHolder,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub enum ChildNode {
+    Element {
+        element: Element,
+    },
+    Text {
+        node: TextNode,
+    },
+    PlaceHolder,
+}
+
+#[derive(Debug, Clone)]
 pub enum Element {
     Div {
-        bundle: NodeBundle,
+        node: SimpleNode,
     },
     Image {
-        bundle: ImageBundle,
+        node: ImageNode,
     },
     Button {
-        bundle: ButtonBundle,
+        node: ButtonNode,
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NodeChildrenTree {
-    nodes: Vec<NodeChild>,
+    pub nodes: Vec<NodeChild>,
 }
 
 impl NodeChildrenTree {
     pub fn placeholder(&mut self) -> usize {
-        self.nodes.push(NodeChild::Node(Node::PlaceHolder));
+        self.nodes.push(NodeChild::Node(ChildNode::PlaceHolder));
         self.nodes.len() - 1
     }
-    pub fn replace(&mut self, index: usize, child: NodeChild) {
-        self.nodes[index] = child;
+    pub fn replace(&mut self, index: usize, child: ChildNode) {
+        self.nodes[index] = NodeChild::Node(child);
     }
     pub fn add(&mut self, child: NodeChild) {
         self.nodes.push(child);
@@ -52,9 +64,9 @@ impl Default for NodeChildrenTree {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NodeChild {
-    Node(Node),
+    Node(ChildNode),
     In,
     Out,
 }

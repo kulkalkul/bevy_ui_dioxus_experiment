@@ -1,5 +1,5 @@
 use app_root::AppRootComponent;
-use bevy::{prelude::App, DefaultPlugins};
+use bevy::{prelude::{App, Commands, Camera2dBundle, Startup, Update, Query}, DefaultPlugins, text::Text};
 
 mod plugin;
 mod integration;
@@ -8,6 +8,7 @@ mod template_map;
 mod element_map;
 mod integration_data;
 mod node;
+mod nodes;
 
 use dioxus::prelude::{Scope, Element, rsx};
 use plugin::DioxusPlugin;
@@ -21,7 +22,12 @@ fn main() {
             DioxusPlugin,
         ))
         .insert_resource(AppRootComponent(app_root))
+        .add_systems(Startup, setup)
         .run();
+}
+
+fn setup(mut commands: Commands,) {
+    commands.spawn(Camera2dBundle::default());
 }
 
 fn app_root(cx: Scope) -> Element {
@@ -32,6 +38,7 @@ fn app_root(cx: Scope) -> Element {
             }
             div { "1" }
             div { "2" }
-        }
+        },
+        "Hello World"
     })
 }
