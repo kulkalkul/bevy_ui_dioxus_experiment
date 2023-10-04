@@ -6,6 +6,7 @@ mod integration;
 mod app_root;
 mod template_map;
 mod element_map;
+mod integration_data;
 mod node;
 
 use dioxus::prelude::{Scope, Element, rsx};

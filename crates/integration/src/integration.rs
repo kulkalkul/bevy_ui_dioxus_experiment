@@ -1,17 +1,11 @@
-use bevy::{prelude::{World, Entity, default, NodeBundle, TextBundle, ImageBundle, ButtonBundle}, utils::HashMap, text::{Text, TextStyle}};
-use dioxus::{prelude::{VirtualDom, TemplateNode, Template}, core::Mutations};
+use bevy::prelude::World;
+use dioxus::prelude::VirtualDom;
 
-use crate::{app_root::AppRootComponent, template_map::TemplateMap, element_map::ElementMap};
+use crate::{app_root::AppRootComponent, integration_data::IntegrationData};
 
 pub struct Dioxus {
     vdom: VirtualDom,
     integration_data: IntegrationData,
-}
-
-#[derive(Default, Debug)]
-struct IntegrationData {
-    template_map: TemplateMap,
-    element_map: ElementMap,
 }
 
 pub fn setup_dioxus(world: &mut World) {
@@ -23,7 +17,7 @@ pub fn setup_dioxus(world: &mut World) {
 
     let mut integration_data = IntegrationData::default();
 
-    update_dom(world, mutations, &mut integration_data);
+    integration_data.update_dom(world, mutations);
 
     world.insert_non_send_resource(Dioxus {
         vdom,
@@ -37,36 +31,9 @@ pub fn update_dioxus(world: &mut World) {
     let mutations = dioxus.vdom.render_immediate();
     let mut integration_data = std::mem::take(&mut dioxus.integration_data);
 
-    update_dom(world, mutations, &mut integration_data);
+    integration_data.update_dom(world, mutations);
 
     dioxus.integration_data = integration_data;
 
     world.insert_non_send_resource(dioxus);
-}
-
-fn update_dom(world: &mut World, mutations: Mutations, integration_data: &mut IntegrationData) {
-    for template in mutations.templates {
-        integration_data.template_map.add(template);
-    }
-
-    for edit in mutations.edits {
-        // match edit {
-        //     Mutation::AppendChildren { id, m } => todo!(),
-        //     Mutation::AssignId { path, id } => todo!(),
-        //     Mutation::CreatePlaceholder { id } => todo!(),
-        //     Mutation::CreateTextNode { value, id } => println!("create_text_node = {value}"),
-        //     Mutation::HydrateText { path, value, id } => todo!(),
-        //     Mutation::LoadTemplate { name, index, id } => todo!(),
-        //     Mutation::ReplaceWith { id, m } => todo!(),
-        //     Mutation::ReplacePlaceholder { path, m } => todo!(),
-        //     Mutation::InsertAfter { id, m } => todo!(),
-        //     Mutation::InsertBefore { id, m } => todo!(),
-        //     Mutation::SetAttribute { name, value, id, ns } => todo!(),
-        //     Mutation::SetText { value, id } => println!("set_text = {value}"),
-        //     Mutation::NewEventListener { name, id } => todo!(),
-        //     Mutation::RemoveEventListener { name, id } => todo!(),
-        //     Mutation::Remove { id } => todo!(),
-        //     Mutation::PushRoot { id } => println!(""),
-        // }
-    }
 }
