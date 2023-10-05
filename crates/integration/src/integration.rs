@@ -1,7 +1,7 @@
-use bevy::prelude::World;
+use bevy::prelude::{World, NodeBundle};
 use dioxus::prelude::VirtualDom;
 
-use crate::{app_root::AppRootComponent, integration_data::IntegrationData};
+use crate::{app_root::{AppRootComponent, AppRootElement}, integration_data::IntegrationData};
 
 pub struct Dioxus {
     vdom: VirtualDom,
@@ -16,6 +16,8 @@ pub fn setup_dioxus(world: &mut World) {
     let mutations = vdom.rebuild();
 
     let mut integration_data = IntegrationData::default();
+    let root_entity = world.spawn((NodeBundle::default(), AppRootElement)).id();
+    integration_data.set_root(root_entity);
 
     integration_data.update_dom(world, mutations);
 
@@ -26,7 +28,9 @@ pub fn setup_dioxus(world: &mut World) {
 }
 
 pub fn update_dioxus(world: &mut World) {
-    let mut dioxus = world.remove_non_send_resource::<Dioxus>().expect("Dioxus resource should exist");
+    let mut dioxus = world
+        .remove_non_send_resource::<Dioxus>()
+        .expect("Dioxus resource should exist");
 
     let mutations = dioxus.vdom.render_immediate();
     let mut integration_data = std::mem::take(&mut dioxus.integration_data);

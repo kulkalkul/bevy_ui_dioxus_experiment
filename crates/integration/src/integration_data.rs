@@ -1,15 +1,20 @@
-use bevy::{prelude::{World, BuildWorldChildren, Entity}, ecs::world::EntityMut};
+use bevy::{prelude::{World, BuildWorldChildren, Entity, Parent, Children, DespawnRecursiveExt}, text::{Text, TextStyle, TextSection}};
 use dioxus::core::{Mutations, Mutation, ElementId};
 
-use crate::{template_map::TemplateMap, element_map::ElementMap, node::{Element, NodeChild, ChildNode, RootNode, NodeChildrenTree}};
+use crate::{template_map::TemplateMap, element_map::ElementMap, node::{Element, NodeChild, ChildNode, RootNode}, nodes::TextNode};
 
 #[derive(Default, Debug)]
 pub struct IntegrationData {
     template_map: TemplateMap,
     element_map: ElementMap,
+    stack: Vec<Entity>,
 }
 
 impl IntegrationData {
+    pub fn set_root(&mut self, root: Entity) {
+        self.element_map.set(ElementId(0), root);
+        self.stack.push(root);
+    }
     pub fn update_dom(&mut self, world: &mut World, mutations: Mutations) {
         for template in mutations.templates {
             self.template_map.add(template);
@@ -17,30 +22,87 @@ impl IntegrationData {
     
         for edit in mutations.edits {
             match edit {
-            //     Mutation::AppendChildren { id, m } => todo!(),
-            //     Mutation::AssignId { path, id } => todo!(),
-            //     Mutation::CreatePlaceholder { id } => todo!(),
-            //     Mutation::CreateTextNode { value, id } => println!("create_text_node = {value}"),
-            //     Mutation::HydrateText { path, value, id } => todo!(),
-                Mutation::LoadTemplate {
-                    name, index, id
-                } => self.load_template(world, name, index, id),
-            //     Mutation::ReplaceWith { id, m } => todo!(),
-            //     Mutation::ReplacePlaceholder { path, m } => todo!(),
-            //     Mutation::InsertAfter { id, m } => todo!(),
-            //     Mutation::InsertBefore { id, m } => todo!(),
-            //     Mutation::SetAttribute { name, value, id, ns } => todo!(),
-            //     Mutation::SetText { value, id } => println!("set_text = {value}"),
-            //     Mutation::NewEventListener { name, id } => todo!(),
-            //     Mutation::RemoveEventListener { name, id } => todo!(),
-            //     Mutation::Remove { id } => todo!(),
-            //     Mutation::PushRoot { id } => println!(""),
+                Mutation::AppendChildren { id, m }
+                    => self.append_children(world, id, m),
+                Mutation::AssignId { path, id }
+                    => self.assign_id(world, path, id),
+                Mutation::CreatePlaceholder { id }
+                    => self.create_placeholder(world, id),
+                Mutation::CreateTextNode { value, id }
+                    => self.create_text_node(world, value, id),
+                Mutation::HydrateText { path, value, id }
+                    => self.hydrate_text(world, path, value, id),
+                Mutation::LoadTemplate { name, index, id }
+                    => self.load_template(world, name, index, id),
+                Mutation::ReplaceWith { id, m }
+                    => self.replace_with(world, id, m),
+                Mutation::ReplacePlaceholder { path, m }
+                    => self.replace_placeholder(world, path, m),
+                Mutation::InsertAfter { id, m }
+                    => self.insert_after(world, id, m),
+                Mutation::InsertBefore { id, m }
+                    => self.insert_before(world, id, m),
+                Mutation::SetAttribute { name, value, id, ns } => todo!(),
+                Mutation::SetText { value, id } =>
+                    self.set_text(world, value, id),
+                Mutation::NewEventListener { name, id } => todo!(),
+                Mutation::RemoveEventListener { name, id } => todo!(),
+                Mutation::Remove { id }
+                    => self.remove(world, id),
+                Mutation::PushRoot { id }
+                    => self.push_root(world, id),
             _ => (),
             }
         }
     }
-    fn load_template(&mut self, world: &mut World, name: &str, index: usize, element_id: ElementId) {
-        match &self.template_map.map[name][index] {
+    fn append_children(&mut self, world: &mut World, id: ElementId, m: usize) {
+        let children = self.stack.split_off(self.stack.len() - m);
+        let parent = self.element_map.get(id);
+
+        let mut parent = world.entity_mut(parent);
+
+        for child in children {
+            parent.add_child(child);
+        }
+    }
+    fn assign_id(&mut self, world: &mut World, path: &[u8], id: ElementId) {
+        let child = child_at_path(&self.stack, world, path);
+        self.element_map.set(id, child);
+    }
+    fn create_placeholder(&mut self, world: &mut World, id: ElementId) {
+        let entity = world.spawn_empty().id();
+        self.element_map.set(id, entity);
+        self.stack.push(entity);
+    }
+    fn create_text_node(&mut self, world: &mut World, value: &str, id: ElementId) {
+        let node = TextNode {
+            text: Text::from_section(value, TextStyle::default()),
+        };
+        let entity = world.spawn(node.bundle()).id();
+        
+        self.element_map.set(id, entity);
+        self.stack.push(entity);
+    }
+    fn hydrate_text(&mut self, world: &mut World, path: &[u8], value: &str, id: ElementId) {
+        let entity = child_at_path(&self.stack, world, path);
+        self.element_map.set(id, entity);
+        
+        if let Some(mut text) = world.get_mut::<Text>(entity) {
+            // Same as set_text
+            text.sections[0].value = value.to_owned();
+        } else {
+            // Do we need to preserve node styles?
+            let parent = parent_entity(world, entity);
+            world.entity_mut(entity).despawn_recursive();
+
+            let node = TextNode {
+                text: Text::from_section(value, TextStyle::default()),
+            };
+            world.spawn(node.bundle());
+        }
+    }
+    fn load_template(&mut self, world: &mut World, name: &str, index: usize, id: ElementId) {
+        let entity = match &self.template_map.map[name][index] {
             RootNode::ElementWithChildren {
                 element,
                 children,
@@ -66,7 +128,7 @@ impl IntegrationData {
                                         Element::Button { node } => builder.spawn(node.bundle()),
                                     },
                                     ChildNode::Text { node } => builder.spawn(node.bundle()),
-                                    ChildNode::PlaceHolder => todo!(),
+                                    ChildNode::PlaceHolder => builder.spawn_empty(),
                                 }.id();
                             });
                         },
@@ -79,18 +141,142 @@ impl IntegrationData {
                         },
                     }
                 }
+
+                parent
             },
             RootNode::Element { element } => {
                 match element {
                     Element::Div { node } => world.spawn(node.bundle()),
                     Element::Image { node } => world.spawn(node.bundle()),
                     Element::Button { node } => world.spawn(node.bundle()),
-                };
+                }.id()
             },
             RootNode::Text { node } => {
-                world.spawn(node.bundle());
+                world.spawn(node.bundle()).id()
             },
-            RootNode::PlaceHolder => todo!(),
+            RootNode::PlaceHolder => world.spawn_empty().id(),
+        };
+
+        self.element_map.set(id, entity);
+        self.stack.push(entity);
+    }
+    fn replace_with(&mut self, world: &mut World, id: ElementId, m: usize) {
+        let to_replace = self.stack.split_off(self.stack.len() - m);
+        let old = self.element_map.get(id);
+
+        // Not the most performant impl, but Children's
+        // field is private
+        let parent = parent_entity(world, old);
+        add_children_relative(world, parent, old, to_replace, ChildRelation::Before);
+        despawn_child(world, old);
+    }
+    fn replace_placeholder(&mut self, world: &mut World, path: &[u8], m: usize) {
+        let to_replace = self.stack.split_off(self.stack.len() - m);
+        let child = child_at_path(&self.stack, world, path);
+        let parent = parent_entity(world, child);
+        
+        // Same as replace_with
+        add_children_relative(world, parent, child, to_replace, ChildRelation::Before);
+        despawn_child(world, child);
+    }
+    fn insert_after(&mut self, world: &mut World, id: ElementId, m: usize) {
+        let to_insert = self.stack.split_off(self.stack.len() - m);
+        let old = self.element_map.get(id);
+
+        let parent = parent_entity(world, old);
+        add_children_relative(world, parent, old, to_insert, ChildRelation::After);
+    }
+    fn insert_before(&mut self, world: &mut World, id: ElementId, m: usize) {
+        let to_insert = self.stack.split_off(self.stack.len() - m);
+        let old = self.element_map.get(id);
+
+        let parent = parent_entity(world, old);
+        add_children_relative(world, parent, old, to_insert, ChildRelation::Before);
+    }
+    fn set_text(&mut self, world: &mut World, value: &str, id: ElementId) {
+        let entity = self.element_map.get(id);
+        if let Some(mut text) = world.get_mut::<Text>(entity) {
+            // Multi section text with DOM wouldn't be compatible
+            // So assuming every text consists of 1 section is OK
+            // I think
+            let style = text.sections[0].style.clone();
+            text.sections = vec![TextSection::new(value, style)];
         }
     }
+    fn remove(&mut self, world: &mut World, id: ElementId) {
+        let entity = self.element_map.get(id);
+        world.entity_mut(entity).despawn_recursive();
+    }
+    fn push_root(&mut self, world: &mut World, id: ElementId) {
+        let entity = self.element_map.get(id);
+        self.stack.push(entity);
+    }
+}
+
+fn child_at_path(stack: &Vec<Entity>, world: &mut World, path: &[u8]) -> Entity {
+    let mut current = stack
+        .last()
+        .expect("stack shouldn't be empty")
+        .to_owned();
+    
+    // Maybe map parent <-> children relationship outside of ecs too?
+    for &index in path {
+        current = children_at(world, current, index as usize);
+    }
+
+    current
+}
+
+fn despawn_child(world: &mut World, child: Entity) {
+    // Maybe use HierarchyEvent::ChildRemoved directly?
+    let mut child = world.entity_mut(child);
+    child.remove_parent();
+    child.despawn();
+}
+
+fn parent_entity(world: &mut World, child: Entity) -> Entity {
+    // I think we can safely assume this would never panic without a bug
+    world
+        .get::<Parent>(child)
+        .expect("parent should exist")
+        .get()
+}
+
+fn children_at(world: &mut World, parent: Entity, index: usize) -> Entity {
+    world
+        .get::<Children>(parent)
+        .expect("children should exist")
+        .get(index)
+        .expect("child should exist")
+        .to_owned()
+
+}
+
+enum ChildRelation {
+    Before,
+    After,
+}
+
+fn add_children_relative(
+    world: &mut World,
+    parent: Entity,
+    child: Entity,
+    children: Vec<Entity>,
+    child_relation: ChildRelation,
+) {
+    // I think we can safely assume this would never panic without a bug
+    let children_components = world
+        .get::<Children>(parent)
+        .expect("children should exist");
+
+    let index = children_components.iter()
+        .position(|entity| *entity == child)
+        .expect("child should exist");
+
+    let index = match child_relation {
+        ChildRelation::Before => index,
+        ChildRelation::After => index + 1,
+    };
+
+    world.entity_mut(parent).insert_children(index, &children);
 }

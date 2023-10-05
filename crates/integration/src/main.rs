@@ -10,8 +10,10 @@ mod integration_data;
 mod node;
 mod nodes;
 
-use dioxus::prelude::{Scope, Element, rsx};
+use dioxus::prelude::{Scope, Element, rsx, use_state, use_effect, to_owned};
 use plugin::DioxusPlugin;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
+
 
 use bevy_ui_dioxus_elements as dioxus_elements;
 
@@ -20,6 +22,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             DioxusPlugin,
+            WorldInspectorPlugin::new(),
         ))
         .insert_resource(AppRootComponent(app_root))
         .add_systems(Startup, setup)
@@ -31,14 +34,18 @@ fn setup(mut commands: Commands,) {
 }
 
 fn app_root(cx: Scope) -> Element {
+    let count = use_state(cx, || 0);
+
+    use_effect(cx, (count,), |(count,)| {
+        to_owned![count];
+        async move {
+            count.modify(|x| x + 1);
+        }
+    });
+
     cx.render(rsx! {
         div {
-            div {
-                div { "0" }
-            }
-            div { "1" }
-            div { "2" }
-        },
-        "Hello World"
+            "This is a counter {count}"
+        }
     })
 }

@@ -1,4 +1,4 @@
-use bevy::{utils::HashMap, prelude::{TextBundle, ButtonBundle, ImageBundle, NodeBundle, default}, text::{Text, TextStyle}};
+use bevy::{utils::HashMap, text::{Text, TextStyle}};
 use dioxus::prelude::{TemplateNode, Template};
 
 use crate::{node::{RootNode, NodeChildrenTree, NodeChild, Element, ChildNode}, nodes::{SimpleNode, ImageNode, ButtonNode, TextNode}};
@@ -29,7 +29,6 @@ impl TemplateMap {
             } => {
                 let mut children_tree = NodeChildrenTree::default();
 
-                // TODO: Handle child nodes
                 for node in *children {
                     let index = children_tree.placeholder();
                     let child = self.create_child(&mut children_tree, name.clone(), node);
@@ -101,6 +100,8 @@ impl TemplateMap {
         }
     }
     fn create_dynamic_text() -> TextNode {
-        TextNode::default()
+        TextNode {
+            text: Text::from_section("", TextStyle::default()),
+        }
     }
 }
