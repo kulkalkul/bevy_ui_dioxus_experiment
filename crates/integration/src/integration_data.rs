@@ -1,7 +1,7 @@
-use bevy::{prelude::{World, BuildWorldChildren, Entity, Parent, Children, DespawnRecursiveExt}, text::{Text, TextStyle, TextSection}};
-use dioxus::core::{Mutations, Mutation, ElementId};
+use bevy::{prelude::{World, BuildWorldChildren, Entity, Parent, Children, DespawnRecursiveExt, Component}, text::{Text, TextStyle, TextSection}, ui::Style};
+use dioxus::core::{Mutations, Mutation, ElementId, BorrowedAttributeValue};
 
-use crate::{template_map::TemplateMap, element_map::ElementMap, node::{Element, NodeChild, ChildNode, RootNode}, nodes::TextNode};
+use crate::{template_map::TemplateMap, element_map::ElementMap, node::{Element, NodeChild, ChildNode, RootNode}, nodes::TextNode, attributes::{AttributeStyle, BevyAttribute}};
 
 #[derive(Default, Debug)]
 pub struct IntegrationData {
@@ -42,7 +42,8 @@ impl IntegrationData {
                     => self.insert_after(world, id, m),
                 Mutation::InsertBefore { id, m }
                     => self.insert_before(world, id, m),
-                Mutation::SetAttribute { name, value, id, ns } => todo!(),
+                Mutation::SetAttribute { name, value, id, .. }
+                    => self.set_attribute(world, name, value, id),
                 Mutation::SetText { value, id } =>
                     self.set_text(world, value, id),
                 Mutation::NewEventListener { name, id } => todo!(),
@@ -193,6 +194,20 @@ impl IntegrationData {
         let parent = parent_entity(world, old);
         add_children_relative(world, parent, old, to_insert, ChildRelation::Before);
     }
+    fn set_attribute(
+        &mut self,
+        world: &mut World,
+        name: &str,
+        value: BorrowedAttributeValue,
+        id: ElementId,
+    ) {
+        let entity = self.element_map.get(id);
+
+        match name {
+            "style" => apply_attribute_to_component::<AttributeStyle, _>(world, entity, value),
+            _ => panic!("invalid attribute name"),
+        };
+    }
     fn set_text(&mut self, world: &mut World, value: &str, id: ElementId) {
         let entity = self.element_map.get(id);
         if let Some(mut text) = world.get_mut::<Text>(entity) {
@@ -279,4 +294,36 @@ fn add_children_relative(
     };
 
     world.entity_mut(parent).insert_children(index, &children);
+}
+
+fn apply_attribute_to_component<A, T>(
+    world: &mut World,
+    entity: Entity,
+    value: BorrowedAttributeValue,
+) where
+    T: Component + Default,
+    A: BevyAttribute<Component = T> + 'static,
+{
+    use BorrowedAttributeValue as Val;
+    let component = world.get_mut::<T>(entity);
+
+    match (value, component) {
+        (Val::Any(value), Some(mut component)) => {
+            let value = value.as_any().downcast_ref::<A>().unwrap();
+            *component = value.component();
+        },
+        (Val::Any(value), None) => {
+            let value = value.as_any().downcast_ref::<A>().unwrap();
+            world
+                .entity_mut(entity)
+                .insert(value.component());
+        }
+        (Val::None, Some(mut component)) => {
+            *component = T::default();
+        },
+        (Val::None, None) => {
+            world.entity_mut(entity).insert(T::default());
+        }
+        _ => panic!("invalid attribute type"),
+    }
 }

@@ -23,7 +23,6 @@ impl TemplateMap {
         match node {
             TemplateNode::Element {
                 tag,
-                attrs,
                 children,
                 ..
             } => {
@@ -60,7 +59,6 @@ impl TemplateMap {
         match node {
             TemplateNode::Element {
                 tag,
-                attrs,
                 children,
                 ..
             } => {

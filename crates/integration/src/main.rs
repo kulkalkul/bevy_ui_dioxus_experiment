@@ -1,5 +1,5 @@
 use app_root::AppRootComponent;
-use bevy::{prelude::{App, Commands, Camera2dBundle, Startup, Update, Query}, DefaultPlugins, text::Text};
+use bevy::{prelude::{App, Commands, Camera2dBundle, Startup}, DefaultPlugins};
 
 mod plugin;
 mod integration;
@@ -9,8 +9,9 @@ mod element_map;
 mod integration_data;
 mod node;
 mod nodes;
+mod attributes;
 
-use dioxus::prelude::{Scope, Element, rsx, use_state, use_effect, to_owned};
+use dioxus::prelude::{Scope, Element, rsx};
 use plugin::DioxusPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
@@ -33,19 +34,11 @@ fn setup(mut commands: Commands,) {
     commands.spawn(Camera2dBundle::default());
 }
 
+
 fn app_root(cx: Scope) -> Element {
-    let count = use_state(cx, || 0);
-
-    use_effect(cx, (count,), |(count,)| {
-        to_owned![count];
-        async move {
-            count.modify(|x| x + 1);
-        }
-    });
-
     cx.render(rsx! {
         div {
-            "This is a counter {count}"
+            "test"
         }
     })
 }
