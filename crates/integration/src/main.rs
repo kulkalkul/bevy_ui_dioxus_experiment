@@ -1,5 +1,5 @@
 use app_root::AppRootComponent;
-use bevy::{prelude::{App, Commands, Camera2dBundle, Startup}, DefaultPlugins};
+use bevy::{prelude::{App, Commands, Camera2dBundle, Component, PreStartup}, DefaultPlugins};
 
 mod plugin;
 mod integration;
@@ -10,8 +10,10 @@ mod integration_data;
 mod node;
 mod nodes;
 mod attributes;
+mod hooks;
 
 use dioxus::prelude::{Scope, Element, rsx};
+use hooks::{use_query, use_world};
 use plugin::DioxusPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
@@ -26,19 +28,29 @@ fn main() {
             WorldInspectorPlugin::new(),
         ))
         .insert_resource(AppRootComponent(app_root))
-        .add_systems(Startup, setup)
+        .add_systems(PreStartup, setup)
         .run();
 }
 
-fn setup(mut commands: Commands,) {
-    commands.spawn(Camera2dBundle::default());
+#[derive(Component)]
+struct Count {
+    value: usize,
 }
 
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Count { value: 5 });
+}
 
 fn app_root(cx: Scope) -> Element {
+    let world = use_world(cx);
+
+    let mut count = use_query::<&Count>(world);
+    let count = count.single(&world.borrow()).value;
+
     cx.render(rsx! {
         div {
-            "test"
+            "Counter: {count}"
         }
     })
 }

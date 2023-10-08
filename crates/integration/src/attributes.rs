@@ -24,4 +24,3 @@ impl<'a> IntoAttributeValue<'a> for AttributeStyle {
         AttributeValue::Any(RefCell::new(Some(boxed)))
     }
 }
-
