@@ -1,7 +1,7 @@
 use bevy::{utils::HashMap, text::{Text, TextStyle}};
 use dioxus::prelude::{TemplateNode, Template};
 
-use crate::{node::{RootNode, NodeChildrenTree, NodeChild, Element, ChildNode}, nodes::{SimpleNode, ImageNode, ButtonNode, TextNode}};
+use crate::{ui_node::{RootNode, NodeChildrenTree, NodeChild, Element, ChildNode}, bevy_node::{SimpleNode, ImageNode, ButtonNode, TextNode}};
 
 #[derive(Default, Debug)]
 pub struct TemplateMap {

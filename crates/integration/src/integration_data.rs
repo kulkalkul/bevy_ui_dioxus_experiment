@@ -1,7 +1,7 @@
 use bevy::{prelude::{World, BuildWorldChildren, Entity, Parent, Children, DespawnRecursiveExt, Component}, text::{Text, TextStyle, TextSection}, ui::Style};
 use dioxus::core::{Mutations, Mutation, ElementId, BorrowedAttributeValue};
 
-use crate::{template_map::TemplateMap, element_map::ElementMap, node::{Element, NodeChild, ChildNode, RootNode}, nodes::TextNode, attributes::{AttributeStyle, BevyAttribute}};
+use crate::{template_map::TemplateMap, element_map::ElementMap, ui_node::{Element, NodeChild, ChildNode, RootNode}, bevy_node::TextNode, attributes::{AttributeStyle, BevyAttribute}};
 
 #[derive(Default, Debug)]
 pub struct IntegrationData {

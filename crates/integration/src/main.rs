@@ -7,8 +7,8 @@ mod app_root;
 mod template_map;
 mod element_map;
 mod integration_data;
-mod node;
-mod nodes;
+mod ui_node;
+mod bevy_node;
 mod attributes;
 mod hooks;
 

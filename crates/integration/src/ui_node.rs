@@ -1,4 +1,4 @@
-use crate::nodes::{TextNode, ImageNode, ButtonNode, SimpleNode};
+use crate::bevy_node::{TextNode, ImageNode, ButtonNode, SimpleNode};
 
 
 #[derive(Debug, Clone)]
