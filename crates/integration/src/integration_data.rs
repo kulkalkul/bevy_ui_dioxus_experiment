@@ -1,7 +1,7 @@
-use bevy::{prelude::{World, BuildWorldChildren, Entity, Parent, Children, DespawnRecursiveExt, Component}, text::{Text, TextStyle, TextSection}, ui::Style};
+use bevy::{prelude::{World, BuildWorldChildren, Entity, Parent, Children, DespawnRecursiveExt}, text::{Text, TextStyle, TextSection}, ui::Style};
 use dioxus::core::{Mutations, Mutation, ElementId, BorrowedAttributeValue};
 
-use crate::{template_map::TemplateMap, element_map::ElementMap, ui_node::{Element, NodeChild, ChildNode, RootNode}, bevy_node::TextNode, attributes::{AttributeStyle, BevyAttribute}};
+use crate::{template_map::TemplateMap, element_map::ElementMap, ui_node::{Element, NodeChild, ChildNode, RootNode}, bevy_node::TextNode, attributes::Attr};
 
 #[derive(Default, Debug)]
 pub struct IntegrationData {
@@ -93,7 +93,6 @@ impl IntegrationData {
             text.sections[0].value = value.to_owned();
         } else {
             // Do we need to preserve node styles?
-            let parent = parent_entity(world, entity);
             world.entity_mut(entity).despawn_recursive();
 
             let node = TextNode {
@@ -204,7 +203,44 @@ impl IntegrationData {
         let entity = self.element_map.get(id);
 
         match name {
-            "style" => apply_attribute_to_component::<AttributeStyle, _>(world, entity, value),
+            "display" => update_style(world, entity, value, |s| &mut s.display),
+            "position_type" => update_style(world, entity, value, |s| &mut s.position_type),
+            "overflow" => update_style(world, entity, value, |s| &mut s.overflow),
+            "direction" => update_style(world, entity, value, |s| &mut s.direction),
+            "left" => update_style(world, entity, value, |s| &mut s.left),
+            "right" => update_style(world, entity, value, |s| &mut s.right),
+            "top" => update_style(world, entity, value, |s| &mut s.top),
+            "bottom" => update_style(world, entity, value, |s| &mut s.bottom),
+            "width" => update_style(world, entity, value, |s| &mut s.width),
+            "height" => update_style(world, entity, value, |s| &mut s.height),
+            "min_width" => update_style(world, entity, value, |s| &mut s.min_width),
+            "min_height" => update_style(world, entity, value, |s| &mut s.min_height),
+            "max_width" => update_style(world, entity, value, |s| &mut s.max_width),
+            "max_height" => update_style(world, entity, value, |s| &mut s.max_height),
+            "aspect_ratio" => update_style(world, entity, value, |s| &mut s.aspect_ratio),
+            "align_items" => update_style(world, entity, value, |s| &mut s.align_items),
+            "justify_items" => update_style(world, entity, value, |s| &mut s.justify_items),
+            "align_self" => update_style(world, entity, value, |s| &mut s.align_self),
+            "justify_self" => update_style(world, entity, value, |s| &mut s.justify_self),
+            "align_content" => update_style(world, entity, value, |s| &mut s.align_content),
+            "justify_content" => update_style(world, entity, value, |s| &mut s.justify_content),
+            "margin" => update_style(world, entity, value, |s| &mut s.margin),
+            "padding" => update_style(world, entity, value, |s| &mut s.padding),
+            "border" => update_style(world, entity, value, |s| &mut s.border),
+            "flex_direction" => update_style(world, entity, value, |s| &mut s.flex_direction),
+            "flex_wrap" => update_style(world, entity, value, |s| &mut s.flex_wrap),
+            "flex_grow" => update_style(world, entity, value, |s| &mut s.flex_grow),
+            "flex_shrink" => update_style(world, entity, value, |s| &mut s.flex_shrink),
+            "flex_basis" => update_style(world, entity, value, |s| &mut s.flex_basis),
+            "row_gap" => update_style(world, entity, value, |s| &mut s.row_gap),
+            "column_gap" => update_style(world, entity, value, |s| &mut s.column_gap),
+            "grid_auto_flow" => update_style(world, entity, value, |s| &mut s.grid_auto_flow),
+            "grid_template_rows" => update_style(world, entity, value, |s| &mut s.grid_template_rows),
+            "grid_template_columns" => update_style(world, entity, value, |s| &mut s.grid_template_columns),
+            "grid_auto_rows" => update_style(world, entity, value, |s| &mut s.grid_auto_rows),
+            "grid_auto_columns" => update_style(world, entity, value, |s| &mut s.grid_auto_columns),
+            "grid_row" => update_style(world, entity, value, |s| &mut s.grid_row),
+            "grid_column" => update_style(world, entity, value, |s| &mut s.grid_column),
             _ => panic!("invalid attribute name"),
         };
     }
@@ -296,34 +332,33 @@ fn add_children_relative(
     world.entity_mut(parent).insert_children(index, &children);
 }
 
-fn apply_attribute_to_component<A, T>(
+fn update_style<T: Default + Clone + 'static>(
     world: &mut World,
     entity: Entity,
     value: BorrowedAttributeValue,
-) where
-    T: Component + Default,
-    A: BevyAttribute<Component = T> + 'static,
-{
+    selector: fn(&mut Style) -> &mut T,
+) {
     use BorrowedAttributeValue as Val;
-    let component = world.get_mut::<T>(entity);
+    let style = world.get_mut::<Style>(entity);
 
-    match (value, component) {
-        (Val::Any(value), Some(mut component)) => {
-            let value = value.as_any().downcast_ref::<A>().unwrap();
-            *component = value.component();
+    let mut style = match style {
+        Some(style) => style,
+        None => {
+            world.entity_mut(entity).insert(Style::default());
+            world.get_mut(entity).unwrap()
         },
-        (Val::Any(value), None) => {
-            let value = value.as_any().downcast_ref::<A>().unwrap();
-            world
-                .entity_mut(entity)
-                .insert(value.component());
-        }
-        (Val::None, Some(mut component)) => {
-            *component = T::default();
+    };
+
+    let field = selector(&mut style);
+
+    match value {
+        Val::Any(value) => {
+            let value = value.as_any().downcast_ref::<Attr<T>>().unwrap();
+            *field = value.0.clone();
         },
-        (Val::None, None) => {
-            world.entity_mut(entity).insert(T::default());
-        }
+        Val::None => {
+            *field = T::default();
+        },
         _ => panic!("invalid attribute type"),
     }
 }

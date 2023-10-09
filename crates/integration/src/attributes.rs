@@ -1,24 +1,11 @@
 use std::cell::RefCell;
 
-use bevy::{ui::Style, prelude::Component};
 use dioxus::{prelude::IntoAttributeValue, core::{exports::bumpalo::{Bump, boxed::Box as BumpBox}, AttributeValue, AnyValue}};
 
-pub trait BevyAttribute {
-    type Component: Component;
-    fn component(&self) -> Self::Component;
-}
-
 #[derive(PartialEq)]
-pub struct AttributeStyle(pub Style);
+pub struct Attr<T>(pub T);
 
-impl BevyAttribute for AttributeStyle {
-    type Component = Style;
-    fn component(&self) -> Style {
-        self.0.clone()
-    }
-}
-
-impl<'a> IntoAttributeValue<'a> for AttributeStyle {
+impl<'a, T: PartialEq + 'static> IntoAttributeValue<'a> for Attr<T> {
     fn into_value(self, bump: &'a Bump) -> AttributeValue<'a> {
         let boxed: BumpBox<'a, dyn AnyValue> = unsafe { BumpBox::from_raw(bump.alloc(self)) };
         AttributeValue::Any(RefCell::new(Some(boxed)))

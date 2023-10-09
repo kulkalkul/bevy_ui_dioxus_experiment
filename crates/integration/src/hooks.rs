@@ -1,10 +1,7 @@
-use std::{rc::Rc, cell::{RefCell, RefMut}};
+use bevy::{ecs::query::WorldQuery, prelude::QueryState};
+use dioxus::prelude::ScopeState;
 
-use bevy::{ecs::query::{WorldQuery, ROQueryItem}, prelude::{QueryState, World}, ui::Style};
-use dioxus::prelude::{ScopeState, use_state};
-
-use crate::{integration::BevyWorld, attributes::AttributeStyle};
-
+use crate::integration::BevyWorld;
 
 pub fn use_world(cx: &ScopeState) -> &mut BevyWorld {
     cx.use_hook(|| {
